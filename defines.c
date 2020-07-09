@@ -1,7 +1,6 @@
 /// @file defines.c
 /// @brief Contiene l'implementazione delle funzioni
-///         specifiche del progetto.
-
+///         specifiche del progett
 #include "defines.h"
 #include "err_exit.h"
 
@@ -33,36 +32,40 @@ double readDouble(const char *s) {
     return res;
 }
 
-void printAckList(Msq_struct *msq_struct){
-    char *pathname = "";
+void printAckList(Msq_struct *msq_struct, Message message){
+    char pathname[15];
     int fd, bW = -1;
 
     //creating the pathname 
-    sprintf(pathname, "out_%d", msq_struct->ack_list[0].message_id);
+    sprintf(pathname, "out_%d.txt", msq_struct->ack_list[0].message_id);
 
     //get the file descriptor of the output file
-    fd = open(pathname, O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP);
+    fd = open(pathname, O_CREAT | O_RDONLY | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP);
 
     //check if open failed
     if(fd == -1)
         errExit("open failed!");
 
-    //chunk of Acknowledgeement
-    size_t size = sizeof(Acknowledgement);  
+    //first and second line
+    char buff[305];
+    sprintf(buff, "Messaggio %d: %s \nLista acknowledgment:\n", message.message_id, message.message);
     
-    int counter = 0;
-    char newLine = '\n';
+    if(write(fd, &buff, strlen(buff) * sizeof(char)) == -1){
+        printf("write failed!\n");
+    } 
+    
+    //printing the body of the received ack_list
+    int counter = 0; 
+    char  text[100];
     
     do{
+        sprintf(text, "%d, %d, %ld \n", msq_struct->ack_list[counter].pid_sender, msq_struct->ack_list[counter].pid_receiver, msq_struct->ack_list[counter].timestamp);
         // Writing up to size bytes on the output file
-        bW = write(fd, &msq_struct->ack_list[counter], size);
+        bW = write(fd, &text, strlen(text) * sizeof(char));
 
         //checking if write successed
-        if(bW != size)
+        if(bW != strlen(text) * sizeof(char))
             errExit("write failed!");
-        
-        //write a new line for the next Acknowledgement
-        write(fd, &newLine, sizeof(char));
 
         counter++;    
     }while (counter < 5);
@@ -73,7 +76,6 @@ void printAckList(Msq_struct *msq_struct){
 
 /***********************************************************SERVER***********************************************************/
 void send_rm_ack(int msqid, Msq_struct *ack_list_message, Acknowledgement *ptr_ack , int maxIndex){
-    printf("<Ack_manager>sending ack_list to client...\n");
     //get the size of the message
     int mSize = sizeof(Msq_struct) - sizeof(long);
     int i, c = 0;
@@ -83,16 +85,14 @@ void send_rm_ack(int msqid, Msq_struct *ack_list_message, Acknowledgement *ptr_a
             //set the message's ack_list
             ack_list_message->ack_list[c] = ptr_ack[i];
             c++;
-            
+        
             //remove the ack from the ack_list
             ptr_ack[i].message_id = -1;
         }
-
     }
 
     //send the ack_list to the client
     if(msgsnd(msqid, ack_list_message, mSize, 0) == -1)
         errExit("msgsnd failed!");
-
 }
 

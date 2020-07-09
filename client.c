@@ -19,7 +19,7 @@
 //#define PATH "/tmp/message_id"
 
 //the FIFO pathname
-char pathnameToFifo[16];
+char pathnameToFifo[20];
 
 /*bool valid_message_id(int message_id){
     int fd, bW = -1;
@@ -100,16 +100,22 @@ int main(int argc, char * argv[]) {
     getFifoPathname(message.pid_receiver, pathnameToFifo);
 
     //open the file descriptor in write only mode
-    int fd = openFifo(pathnameToFifo, O_WRONLY);
+    int fd_fifo = open(pathnameToFifo, O_WRONLY); 
+    
+    if(fd_fifo == -1)
+        errExit("open FIFO failed!");
 
     //write the message in the FIFO
     int bW = -1;
     
-    bW = write(fd, &message, sizeof(message));
+    bW = write(fd_fifo, &message, sizeof(message));
     
     if(bW != sizeof(message))
         errExit("write failed!");
-
+    
+    //close the FIFO
+    close(fd_fifo);
+    
     //wait the acknowledgment list
     //get the message queue identifier
     int msqid = msgget(msgKey, S_IRUSR | S_IWUSR);
@@ -128,27 +134,14 @@ int main(int argc, char * argv[]) {
     if(msgrcv(msqid, &msq_struct, mSize, message.message_id, 0) == -1)
         errExit("msgrcv failed!");
     
-    //print the acknowledge list on out_message_id
-    
-    //first line
-    char *buff = "Messagio ";
-    buff = strcat(buff, message.message_id + "%d: ");
-    buff = strcat(buff, message.message);
-
-    if(write(fd, &buff, sizeof(buff)) ==-1){
-        printf("write of the first line failed!\n");
-    }
-
-    //second line
-    buff = "\nLista acknowledgment:\n";
-    if(write(fd, &buff, sizeof(buff)) ==-1){
-        printf("write of the second line failed!\n");
-    }
+    printf("\n ack_list received\n");
+    for(int j = 0; j < 5 ; j++)
+        printf("%5d, pidS: %d, pidR: %d\n", msq_struct.ack_list[j].message_id, msq_struct.ack_list[j].pid_sender, msq_struct.ack_list[j].pid_receiver);
+    printf("\n");
 
     //print the list
-    printAckList(&msq_struct);
+    printAckList(&msq_struct, message);
     
     //termination
-    close(fd);
     exit(0);
 }

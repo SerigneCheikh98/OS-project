@@ -43,7 +43,7 @@ int readInt(const char *s);
 double readDouble(const char *s);
 
 //print the acknowledgement list on the out_message_id file
-void printAckList(Msq_struct *msq_struct);
+void printAckList(Msq_struct *msq_struct, Message message);
 
 //send the message and remove acks from the ack_list
 void send_rm_ack(int msqid, Msq_struct *ack_list_message, Acknowledgement *ptr_ack, int maxINdex);
